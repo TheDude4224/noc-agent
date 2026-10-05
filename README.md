@@ -1,5 +1,7 @@
 # noc-agent
 
+[![tests](https://github.com/TheDude4224/noc-agent/actions/workflows/tests.yml/badge.svg)](https://github.com/TheDude4224/noc-agent/actions/workflows/tests.yml)
+
 A small, honest reference implementation of an AI-assisted Network Operations Center.
 
 Alert comes in. A model triages it against a fixed menu of runbooks. Deterministic guardrails decide whether anything runs. Every run writes one audit line. The model never writes a command; it only picks from the menu, and seven gates sit between its pick and your infrastructure.
