@@ -1,0 +1,60 @@
+# Runbooks are the ONLY actions the agent can take. If it isn't here, it can't happen.
+# The LLM picks a runbook by id; it never writes a command.
+#
+# Fields:
+#   id          stable identifier the LLM references
+#   description what the action does, in plain words (the LLM reads this)
+#   matches     alertname patterns this runbook is allowed to address
+#   command     executed locally with `sh -c`; use {host} / {instance} / {label.x} placeholders
+#   reversible  true = agent may run it on its own (when dry_run is false)
+#               false = always waits for human approval
+#   rollback    optional command run if `verify` fails after execution
+#   verify      optional command; non-zero exit means the fix did not take and rollback runs
+#   timeout     seconds
+
+- id: restart-service
+  description: Restart a systemd service on the affected host. Safe for stateless services.
+  matches: ["ServiceDown", "HighErrorRate"]
+  command: "ssh -o BatchMode=yes {host} 'sudo systemctl restart {label.service}'"
+  verify:  "ssh -o BatchMode=yes {host} 'systemctl is-active {label.service}'"
+  reversible: true
+  timeout: 60
+
+- id: clear-journal-logs
+  description: Vacuum systemd journal to 500M on a host with a full disk. Loses old logs only.
+  matches: ["DiskSpaceLow", "DiskAlmostFull"]
+  command: "ssh -o BatchMode=yes {host} 'sudo journalctl --vacuum-size=500M'"
+  verify:  "ssh -o BatchMode=yes {host} 'test $(df --output=pcent / | tail -1 | tr -dc 0-9) -lt 90'"
+  reversible: true
+  timeout: 120
+
+- id: restart-container
+  description: Restart a Docker container by name.
+  matches: ["ContainerUnhealthy", "ContainerDown"]
+  command: "ssh -o BatchMode=yes {host} 'docker restart {label.container}'"
+  verify:  "ssh -o BatchMode=yes {host} 'docker inspect -f {{{{.State.Running}}}} {label.container} | grep -q true'"
+  reversible: true
+  timeout: 90
+
+- id: failover-to-secondary-wan
+  description: Switch the site router's default route to the backup WAN. Affects every user on site.
+  matches: ["PrimaryWANDown"]
+  command: "ssh -o BatchMode=yes {host} '/usr/local/bin/wan-failover secondary'"
+  rollback: "ssh -o BatchMode=yes {host} '/usr/local/bin/wan-failover primary'"
+  verify:  "ssh -o BatchMode=yes {host} 'ping -c 2 -W 2 1.1.1.1'"
+  reversible: false
+  timeout: 60
+
+- id: reboot-host
+  description: Reboot the host. Last resort. Drops every session on it.
+  matches: ["HostUnresponsive", "KernelPanic"]
+  command: "ssh -o BatchMode=yes {host} 'sudo systemctl reboot'"
+  reversible: false
+  timeout: 30
+
+- id: escalate-to-human
+  description: Do nothing automatically. Page the on-call with the triage summary.
+  matches: ["*"]
+  command: "true"
+  reversible: true
+  timeout: 5

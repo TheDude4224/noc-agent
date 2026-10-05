@@ -1,0 +1,34 @@
+# Same ids as runbooks/runbooks.yaml, but every command runs locally and is harmless.
+# For watching the loop work on a laptop. Not for production.
+
+- id: restart-service
+  description: Restart a systemd service on the affected host. Safe for stateless services.
+  matches: ["ServiceDown", "HighErrorRate"]
+  command: "echo 'restart {label.service} on {host}' && touch /tmp/noc-demo-{label.service}"
+  verify:  "test -f /tmp/noc-demo-{label.service}"
+  reversible: true
+  timeout: 10
+
+- id: clear-journal-logs
+  description: Vacuum systemd journal to 500M on a host with a full disk. Loses old logs only.
+  matches: ["DiskSpaceLow", "DiskAlmostFull"]
+  command: "echo 'vacuum journal on {host}'"
+  verify:  "false"          # deliberately fails so you can see verify-failed handling
+  reversible: true
+  timeout: 10
+
+- id: failover-to-secondary-wan
+  description: Switch the site router's default route to the backup WAN. Affects every user on site.
+  matches: ["PrimaryWANDown"]
+  command: "echo 'FAILOVER {host} -> secondary'"
+  rollback: "echo 'ROLLBACK {host} -> primary'"
+  verify:  "true"
+  reversible: false
+  timeout: 10
+
+- id: escalate-to-human
+  description: Do nothing automatically. Page the on-call with the triage summary.
+  matches: ["*"]
+  command: "true"
+  reversible: true
+  timeout: 5

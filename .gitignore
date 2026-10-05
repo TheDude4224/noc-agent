@@ -1,0 +1,12 @@
+config.yaml
+.env
+audit.jsonl
+approvals/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+.venv/
+noc_agent.egg-info/

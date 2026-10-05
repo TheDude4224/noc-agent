@@ -1,0 +1,54 @@
+"""Alertmanager webhook receiver.
+
+Point Alertmanager at POST /alertmanager. Each firing alert becomes one run.
+Resolved alerts are acknowledged and ignored; the agent acts on problems, not on
+their absence.
+"""
+
+from __future__ import annotations
+
+from fastapi import FastAPI, Request
+
+from .agent import Agent
+from .models import Alert
+
+
+def normalize_alertmanager(payload: dict) -> list[Alert]:
+    out: list[Alert] = []
+    for a in payload.get("alerts", []):
+        if a.get("status") != "firing":
+            continue
+        labels = dict(a.get("labels", {}))
+        ann = a.get("annotations", {})
+        out.append(Alert(
+            alertname=labels.pop("alertname", "Unknown"),
+            instance=labels.get("instance", ""),
+            severity=labels.get("severity", "warning"),
+            summary=ann.get("summary", ""),
+            description=ann.get("description", ""),
+            labels=labels,
+            fingerprint=a.get("fingerprint", ""),
+        ))
+    return out
+
+
+def create_app(agent: Agent) -> FastAPI:
+    app = FastAPI(title="noc-agent", version="0.1.0")
+
+    @app.get("/healthz")
+    def healthz():
+        return {"ok": True, "dry_run": agent.cfg.policy.dry_run, "runbooks": len(agent.runbooks)}
+
+    @app.post("/alertmanager")
+    async def alertmanager(req: Request):
+        payload = await req.json()
+        alerts = normalize_alertmanager(payload)
+        results = [agent.handle(a) for a in alerts]
+        return {"received": len(payload.get("alerts", [])), "handled": len(results),
+                "decisions": [{"run_id": r.run_id, "alert": r.alert.alertname, "decision": r.decision} for r in results]}
+
+    @app.get("/audit")
+    def audit(n: int = 20):
+        return [r.model_dump(mode="json") for r in agent.audit.tail(n)]
+
+    return app

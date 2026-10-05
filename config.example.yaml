@@ -1,0 +1,41 @@
+# noc-agent configuration. Copy to config.yaml and edit.
+# Every setting here is a guardrail. The defaults are the safe ones.
+
+llm:
+  # Any OpenAI-compatible chat endpoint: Ollama, vLLM, OpenAI, OpenRouter.
+  # Ollama example:  http://10.0.0.84:11434/v1   model: llama3.1:8b
+  # vLLM example:    http://gpu-box:8000/v1      model: Qwen/Qwen2.5-14B-Instruct
+  base_url: "http://localhost:11434/v1"
+  model: "llama3.1:8b"
+  api_key_env: "NOC_LLM_API_KEY"     # env var holding the key; unset is fine for Ollama
+  timeout_seconds: 60
+  # "fake" replays canned triage from examples/fake_llm.yaml. Use it for tests and demos.
+  provider: "openai"                  # openai | fake
+
+policy:
+  # The single most important switch. Nothing executes until you flip it.
+  dry_run: true
+  # Actions marked reversible: false in a runbook always wait for a human, even when dry_run is false.
+  require_approval_for_irreversible: true
+  # Hard cap on executed actions per alert and per hour. If a parse goes sideways, this stops it.
+  max_actions_per_alert: 2
+  max_actions_per_hour: 10
+  # Triage confidence below this: log and notify, do nothing.
+  min_confidence_to_act: 0.75
+  # Alert labels that always route to a human (e.g. anything touching payments or auth).
+  never_automate_labels:
+    - "tier=payments"
+    - "tier=auth"
+
+runbooks_file: "runbooks/runbooks.yaml"
+
+audit:
+  path: "audit.jsonl"               # one line per run, append-only
+
+notify:
+  # Optional webhook (Slack, Teams, Discord, ntfy). Leave empty to print to stdout only.
+  webhook_url: ""
+
+server:
+  host: "0.0.0.0"
+  port: 8088

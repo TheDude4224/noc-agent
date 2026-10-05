@@ -1,0 +1,20 @@
+# "Live" demo: fake model, dry run OFF, but runbooks swapped for harmless local
+# commands so you can watch execute / verify / rollback actually happen on your laptop.
+llm:
+  provider: "fake"
+  fake_responses_file: "examples/fake_llm.yaml"
+
+policy:
+  dry_run: false
+  require_approval_for_irreversible: true
+  max_actions_per_alert: 2
+  max_actions_per_hour: 10
+  min_confidence_to_act: 0.75
+  never_automate_labels:
+    - "tier=payments"
+    - "tier=auth"
+
+runbooks_file: "examples/runbooks.local.yaml"
+audit:
+  path: "audit.jsonl"
+approvals_dir: "approvals"

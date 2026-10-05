@@ -1,0 +1,39 @@
+# Canned triage responses keyed by alertname. Used when llm.provider is "fake".
+# Lets you run the whole loop (and the test suite) with no model at all.
+# These mimic what a decent 8B local model returns on these alerts.
+
+ServiceDown:
+  runbook_id: restart-service
+  confidence: 0.92
+  reasoning: "Stateless web tier service reported inactive by systemd. A restart is the standard first response and is reversible."
+  blast_radius: single-service
+
+DiskSpaceLow:
+  runbook_id: clear-journal-logs
+  confidence: 0.88
+  reasoning: "Journal is 4.2G on a 93% full root. Vacuuming the journal recovers space without touching data."
+  blast_radius: single-host
+
+PrimaryWANDown:
+  runbook_id: failover-to-secondary-wan
+  confidence: 0.85
+  reasoning: "Primary circuit has no upstream reachability and backup is healthy. Failover restores service but affects the whole site."
+  blast_radius: site
+
+HighErrorRate:
+  runbook_id: restart-service
+  confidence: 0.80
+  reasoning: "Error spike isolated to one endpoint; a restart may clear a bad worker. Latency is normal so this is not saturation."
+  blast_radius: single-service
+
+WeirdCertThing:
+  runbook_id: escalate-to-human
+  confidence: 0.30
+  reasoning: "The alert itself says the cause is unclear and none of the runbooks address TLS. A miss is cheaper than a wrong action."
+  blast_radius: unknown
+
+"*":
+  runbook_id: escalate-to-human
+  confidence: 0.0
+  reasoning: "No canned response for this alert; escalating."
+  blast_radius: unknown

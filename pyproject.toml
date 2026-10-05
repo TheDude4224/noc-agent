@@ -1,0 +1,31 @@
+[project]
+name = "noc-agent"
+version = "0.1.0"
+description = "A small, honest reference implementation of an AI-assisted Network Operations Center: alert in, triage, act under guardrails, audit everything."
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.11"
+authors = [{ name = "Jason Vardon", email = "jason@vardon.org" }]
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+    "httpx>=0.27",
+    "pyyaml>=6.0",
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+noc-agent = "noc_agent.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["noc_agent*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,58 @@
+[
+  {
+    "alertname": "ServiceDown",
+    "instance": "web-03.lab.local:9100",
+    "severity": "critical",
+    "summary": "nginx is not running on web-03",
+    "description": "systemd reports nginx.service inactive for 3 minutes",
+    "labels": {"service": "nginx", "tier": "web", "site": "fenton"}
+  },
+  {
+    "alertname": "DiskSpaceLow",
+    "instance": "db-01.lab.local:9100",
+    "severity": "warning",
+    "summary": "Root filesystem 93% full on db-01",
+    "description": "/ has 7% free; journald is 4.2G",
+    "labels": {"tier": "database", "site": "fenton"}
+  },
+  {
+    "alertname": "PrimaryWANDown",
+    "instance": "rtr-fenton.lab.local:9100",
+    "severity": "critical",
+    "summary": "Primary WAN circuit down at Fenton",
+    "description": "No ICMP to upstream gateway for 90s; backup circuit is up",
+    "labels": {"tier": "network", "site": "fenton"}
+  },
+  {
+    "alertname": "HighErrorRate",
+    "instance": "pay-api-01.lab.local:9100",
+    "severity": "critical",
+    "summary": "5xx rate 12% on payments API",
+    "description": "p99 latency normal; errors concentrated on /charge",
+    "labels": {"service": "pay-api", "tier": "payments", "site": "fenton"}
+  },
+  {
+    "alertname": "WeirdCertThing",
+    "instance": "vpn-01.lab.local:9100",
+    "severity": "warning",
+    "summary": "TLS handshake failures rising on VPN concentrator",
+    "description": "Cause unclear; could be clock skew, cert rotation, or a client bug",
+    "labels": {"tier": "network", "site": "fenton"}
+  },
+  {
+    "alertname": "ServiceDown",
+    "instance": "web-03.lab.local:9100",
+    "severity": "critical",
+    "summary": "nginx is not running on web-03 (again)",
+    "description": "Second time in 10 minutes",
+    "labels": {"service": "nginx", "tier": "web", "site": "fenton"}
+  },
+  {
+    "alertname": "ServiceDown",
+    "instance": "web-03.lab.local:9100",
+    "severity": "critical",
+    "summary": "nginx is not running on web-03 (third time)",
+    "description": "Something is killing it; restarts are not the fix",
+    "labels": {"service": "nginx", "tier": "web", "site": "fenton"}
+  }
+]
