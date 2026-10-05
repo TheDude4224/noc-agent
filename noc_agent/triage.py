@@ -19,7 +19,8 @@ from .models import Alert, Runbook, Triage
 
 SYSTEM_PROMPT = """You are the triage step of a Network Operations Center agent.
 You will be given one firing alert and a numbered menu of runbooks.
-Pick exactly one runbook id from the menu. Never invent an id or a command.
+Pick exactly one runbook from the menu and return its id string (for example "restart-service"),
+never its number. Never invent an id or a command.
 If nothing on the menu clearly fits, or the situation is ambiguous, choose "escalate-to-human".
 A miss is cheaper than a wrong action. Lower your confidence when the alert is vague.
 
@@ -75,6 +76,12 @@ class Triager:
                 reasoning=f"triage failed: {type(e).__name__}: {e}",
                 blast_radius="unknown",
             )
+        # Small local models like to answer with the menu number instead of the id.
+        # Map "3" (or "#3", "3.") to the third entry rather than throwing the triage away.
+        if t.runbook_id not in allowed:
+            digits = t.runbook_id.strip().lstrip("#").rstrip(".")
+            if digits.isdigit() and 1 <= int(digits) <= len(menu):
+                t = t.model_copy(update={"runbook_id": menu[int(digits) - 1].id})
         if t.runbook_id not in allowed:
             return Triage(
                 runbook_id="escalate-to-human",

@@ -102,3 +102,23 @@ def test_alertmanager_normalization_skips_resolved():
     assert len(out) == 1
     assert out[0].alertname == "ServiceDown" and out[0].host == "h" and out[0].labels["service"] == "nginx"
     assert "alertname" not in out[0].labels
+
+
+def test_numeric_menu_choice_maps_to_id(tmp_path):
+    """Observed on qwen2.5-coder:7b and llama3-groq-tool-use:8b: they answer "1" not the id."""
+    from noc_agent.models import Runbook
+    t = Triager(LLMConfig(provider="fake", fake_responses_file=str(tmp_path / "f.yaml")))
+    t._fake = {"X": {"runbook_id": "2", "confidence": 0.9, "reasoning": "second one"}}
+    menu = [Runbook(id="a", description="", matches=["X"], command="true", reversible=True),
+            Runbook(id="b", description="", matches=["X"], command="true", reversible=True),
+            Runbook(id="escalate-to-human", description="", matches=["*"], command="true", reversible=True)]
+    out = t.triage(Alert(alertname="X"), menu)
+    assert out.runbook_id == "b" and out.confidence == 0.9
+
+
+def test_numeric_choice_out_of_range_escalates(tmp_path):
+    from noc_agent.models import Runbook
+    t = Triager(LLMConfig(provider="fake", fake_responses_file=str(tmp_path / "f.yaml")))
+    t._fake = {"X": {"runbook_id": "9", "confidence": 0.9, "reasoning": "nope"}}
+    menu = [Runbook(id="a", description="", matches=["X"], command="true", reversible=True)]
+    assert t.triage(Alert(alertname="X"), menu).runbook_id == "escalate-to-human"
