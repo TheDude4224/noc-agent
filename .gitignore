@@ -10,3 +10,4 @@ dist/
 build/
 .venv/
 noc_agent.egg-info/
+._*
