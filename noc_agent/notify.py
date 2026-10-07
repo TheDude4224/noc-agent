@@ -67,7 +67,7 @@ class Notifier:
         if not self.webhook_url:
             return True
         body = {"text": line, "stage": stage, "run_id": rec.run_id, "alertname": rec.alert.alertname,
-                "runbook_id": rec.runbook_id, "decision": rec.decision if stage == "after" else None}
+                "runbook_id": rec.runbook_id, "decision": None if stage == "before" else rec.decision}
         try:
             r = httpx.post(self.webhook_url, json=body, timeout=30 if stage == "before" else 5)
             ok = 200 <= r.status_code < 300

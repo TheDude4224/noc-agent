@@ -63,6 +63,8 @@ def test_person_bound_runs_get_a_diagnosis_posted_and_stored(tmp_path, monkeypat
     diag = [p for p in posts if p["stage"] == "diagnosis"]
     assert {p["run_id"] for p in diag} == want and want            # every person-bound run, nothing else
     assert all(p["text"].startswith("[DIAGNOSIS] ") and "the cert expired" in p["text"] for p in diag)
+    by_run = {r.run_id: r.decision for r in recs}
+    assert all(p["decision"] == by_run[p["run_id"]] for p in diag)   # a relay can route by decision
     executed = next(r for r in recs if r.decision == "executed")
     assert agent.writer.get(executed.run_id) is None
     some = next(iter(want))
