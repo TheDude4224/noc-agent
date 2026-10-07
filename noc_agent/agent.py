@@ -15,6 +15,7 @@ from .models import Alert, AuditRecord, Runbook
 from .notify import Notifier
 from .policy import Policy
 from .triage import Triager
+from .writer import Writer
 
 
 class Agent:
@@ -28,6 +29,7 @@ class Agent:
         self.notifier = Notifier(cfg.notify.webhook_url)
         if cfg.notify.require_announce and not cfg.notify.webhook_url:
             raise ValueError("notify.require_announce needs notify.webhook_url: there is nowhere to announce to")
+        self.writer = Writer(cfg.writer, on_written=self.notifier.send_diagnosis)
         self.approvals = Path(cfg.approvals_dir)
         self.approvals.mkdir(parents=True, exist_ok=True)
         METRICS.set("noc_build_info", 1, {"version": engine_version()})
@@ -161,4 +163,9 @@ class Agent:
         METRICS.observe("noc_run_duration_seconds", rec.duration_ms / 1000)
         METRICS.set("noc_last_run_timestamp_seconds", time.time())
         self.notifier.send(rec)
+        self.writer.submit(rec)       # background; a person-bound run gets a written diagnosis
         return rec
+
+    def close(self) -> None:
+        """Let queued write-ups finish (CLI commands exit right after one run)."""
+        self.writer.close(wait=True)

@@ -42,6 +42,18 @@ notify:
   # The run is recorded as blocked; a parked approval stays parked. Needs webhook_url.
   require_announce: false
 
+# Optional: a strong model writes a short diagnosis for every run that lands on a person
+# (escalated, needs approval, blocked, error, rolled back). Background, deduped, capped.
+# It never chooses or runs anything. See README "The writer".
+writer:
+  provider: "none"                 # none | claude-cli | anthropic-api | openai
+  model: "claude-haiku-4-5"
+  # credential_env: ""             # default: CLAUDE_CODE_OAUTH_TOKEN (claude-cli), ANTHROPIC_API_KEY (anthropic-api)
+  max_words: 120
+  dedupe_minutes: 360
+  max_per_hour: 20
+  path: "diagnoses.jsonl"
+
 server:
   host: "0.0.0.0"
   port: 8088

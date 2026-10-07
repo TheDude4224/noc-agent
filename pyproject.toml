@@ -16,6 +16,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
+# writer.provider: anthropic-api
+anthropic = ["anthropic>=0.40"]
 
 [project.scripts]
 noc-agent = "noc_agent.cli:main"
