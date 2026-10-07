@@ -43,6 +43,23 @@ class NotifyConfig(BaseModel):
     require_announce: bool = False     # refuse to act if that announcement is not delivered (2xx)
 
 
+class WriterConfig(BaseModel):
+    """The diagnosis writer (writer.py). Off unless a provider is set."""
+    provider: str = "none"             # none | claude-cli | anthropic-api | openai | fake
+    model: str = "claude-haiku-4-5"
+    credential_env: str = ""           # default per provider: CLAUDE_CODE_OAUTH_TOKEN / ANTHROPIC_API_KEY / NOC_WRITER_API_KEY
+    base_url: str = "http://localhost:11434/v1"   # openai provider only
+    claude_bin: str = "claude"         # claude-cli provider only
+    on: list[str] = Field(default_factory=lambda: [
+        "escalated", "needs-approval", "blocked-policy", "error", "executed-rolled-back"])
+    max_words: int = 120
+    timeout_seconds: int = 120
+    dedupe_minutes: int = 360          # same alert + decision + runbook: one write-up per window
+    max_per_hour: int = 20
+    path: str = "diagnoses.jsonl"
+    fake_text: str = "fake diagnosis"
+
+
 class ServerConfig(BaseModel):
     host: str = "0.0.0.0"
     port: int = 8088
@@ -54,6 +71,7 @@ class Config(BaseModel):
     runbooks_file: str = "runbooks/runbooks.yaml"
     audit: AuditConfig = AuditConfig()
     notify: NotifyConfig = NotifyConfig()
+    writer: WriterConfig = WriterConfig()
     server: ServerConfig = ServerConfig()
     approvals_dir: str = "approvals"
 

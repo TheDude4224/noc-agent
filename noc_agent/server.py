@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import time
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 
 from .agent import Agent
@@ -61,6 +61,13 @@ def create_app(agent: Agent) -> FastAPI:
         results = [agent.handle(a) for a in alerts]
         return {"received": len(payload.get("alerts", [])), "handled": len(results),
                 "decisions": [{"run_id": r.run_id, "alert": r.alert.alertname, "decision": r.decision} for r in results]}
+
+    @app.get("/diagnosis/{run_id}")
+    def diagnosis(run_id: str):
+        d = agent.writer.get(run_id)
+        if d is None:
+            raise HTTPException(status_code=404, detail="no diagnosis for that run (writer off, skipped, or not done yet)")
+        return d
 
     @app.get("/audit")
     def audit(n: int = 20):

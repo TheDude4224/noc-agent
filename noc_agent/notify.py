@@ -4,7 +4,7 @@ Say what it's going to do, do what it said: before a runbook executes, `announce
 intent, the evidence (the model's reasoning and the alert) and the impact. After every run,
 `send` posts the outcome. Messages stay terse. Nobody wants a paragraph at 2am.
 
-Webhook payload: {"text": <line>, "stage": "before"|"after", "run_id", "alertname",
+Webhook payload: {"text": <line>, "stage": "before"|"after"|"diagnosis", "run_id", "alertname",
 "runbook_id", "decision"}. Receivers that only read "text" keep working.
 """
 
@@ -86,3 +86,7 @@ class Notifier:
     def send(self, rec: AuditRecord) -> bool:
         """After every run."""
         return self._post(format_line(rec), "after", rec)
+
+    def send_diagnosis(self, rec: AuditRecord, text: str) -> bool:
+        """The writer's follow-up for a run that landed on a person."""
+        return self._post(f"[DIAGNOSIS] {_where(rec)} | run={rec.run_id}\n{text}", "diagnosis", rec)

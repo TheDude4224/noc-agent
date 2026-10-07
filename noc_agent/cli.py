@@ -38,6 +38,13 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
     cfg = load_config(args.config)
     agent = Agent(cfg)
+    try:
+        return _dispatch(args, cfg, agent)
+    finally:
+        agent.close()   # queued diagnosis write-ups finish before the process exits
+
+
+def _dispatch(args, cfg, agent) -> int:
 
     if args.cmd == "serve":
         import uvicorn

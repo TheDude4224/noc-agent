@@ -101,6 +101,24 @@ Before any runbook executes, including a human-approved one, the agent announces
 
 `will:`/`did:` come from the runbook's optional `intent` (placeholders allowed, rendered unquoted; it falls back to `description`), `impact:` from its optional `impact`. Dry runs, escalations and parked approvals are not announced because nothing runs. `notify.announce: false` turns the pre-action message off. `notify.require_announce: true` makes the announcement a gate: if the webhook does not answer 2xx, nothing executes, the run is audited as **blocked**, and a parked approval stays parked. Use it when "it acted without telling anyone" is worse than "it waited". The webhook body is `{"text", "stage": "before"|"after", "run_id", "alertname", "runbook_id", "decision"}`, so a relay can treat the two stages differently. `noc_announcements_total{stage,result}` counts deliveries.
 
+## The writer: a stronger model explains what a person is being handed
+
+The triage model only picks from a menu, so it can be small and local. When a run ends on a person (escalated, needs approval, blocked, error, rolled back), an optional **writer** turns the evidence the engine already has (alert, labels, triage reasoning, policy reason, runbook, command output) into a short diagnosis: what is wrong, the likely cause, the next step. It is advice for a human; it cannot choose or run anything.
+
+```yaml
+writer:
+  provider: claude-cli        # or anthropic-api, openai (any OpenAI-compatible endpoint), none
+  model: claude-haiku-4-5
+```
+
+| provider | auth | needs |
+|---|---|---|
+| `claude-cli` | `CLAUDE_CODE_OAUTH_TOKEN` (a Claude subscription, from `claude setup-token`) or `ANTHROPIC_API_KEY` | Claude Code in the image: `docker build --build-arg CLAUDE_CLI=1 .` |
+| `anthropic-api` | `ANTHROPIC_API_KEY` | `pip install 'noc-agent[anthropic]'` / `--build-arg EXTRAS=anthropic` |
+| `openai` | `NOC_WRITER_API_KEY` (optional) | nothing; point `base_url` at Ollama, vLLM, OpenAI, OpenRouter |
+
+`claude-cli` runs `claude -p` with every tool disabled (`--tools ""`), no MCP servers, no session saved, and a throwaway `HOME`, so nothing from the host's Claude setup leaks in. Write-ups run on one background worker, so alerts are never held up; the same alert/decision/runbook gets one write-up per `dedupe_minutes`, and `max_per_hour` caps the spend. Each one is appended to `writer.path`, posted to the webhook as a `[DIAGNOSIS]` follow-up (`stage: "diagnosis"`), and served at `GET /diagnosis/<run_id>`. Metrics: `noc_writer_requests_total`, `noc_writer_errors_total`, `noc_writer_skipped_total{reason}`, `noc_writer_latency_seconds`.
+
 ## Runbooks are the whole attack surface
 
 `runbooks/runbooks.yaml` is the only place a command can come from. Keep it short. Every entry is:
