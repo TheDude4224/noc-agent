@@ -117,7 +117,7 @@ writer:
 | `anthropic-api` | `ANTHROPIC_API_KEY` | `pip install 'noc-agent[anthropic]'` / `--build-arg EXTRAS=anthropic` |
 | `openai` | `NOC_WRITER_API_KEY` (optional) | nothing; point `base_url` at Ollama, vLLM, OpenAI, OpenRouter |
 
-`claude-cli` runs `claude -p` with every tool disabled (`--tools ""`), no MCP servers, no session saved, and a throwaway `HOME`, so nothing from the host's Claude setup leaks in. Write-ups run on one background worker, so alerts are never held up; the same alert/decision/runbook gets one write-up per `dedupe_minutes`, and `max_per_hour` caps the spend. Each one is appended to `writer.path`, posted to the webhook as a `[DIAGNOSIS]` follow-up (`stage: "diagnosis"`), and served at `GET /diagnosis/<run_id>`. Metrics: `noc_writer_requests_total`, `noc_writer_errors_total`, `noc_writer_skipped_total{reason}`, `noc_writer_latency_seconds`.
+`claude-cli` runs `claude -p` with every tool disabled (`--tools ""`), no MCP servers, no session saved, and a throwaway `HOME`, so nothing from the host's Claude setup leaks in. Write-ups run on one background worker, so alerts are never held up; the same alert/decision/runbook gets one write-up per `dedupe_minutes`, and `max_per_hour` caps the spend. Which decisions get one is `writer.decisions` (default: escalated, needs-approval, blocked-policy, error, executed-rolled-back). Each one is appended to `writer.path`, posted to the webhook as a `[DIAGNOSIS]` follow-up (`stage: "diagnosis"`), and served at `GET /diagnosis/<run_id>`. Metrics: `noc_writer_requests_total`, `noc_writer_errors_total`, `noc_writer_skipped_total{reason}`, `noc_writer_latency_seconds`.
 
 ## Runbooks are the whole attack surface
 

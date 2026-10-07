@@ -100,7 +100,7 @@ class Writer:
     # -- intake ------------------------------------------------------------
 
     def wants(self, rec: AuditRecord) -> bool:
-        return self.enabled and rec.decision in self.cfg.on
+        return self.enabled and rec.decision in self.cfg.decisions
 
     def submit(self, rec: AuditRecord) -> Future | None:
         """Queue a write-up for this run. Returns None when skipped (off, dedupe, cap)."""
