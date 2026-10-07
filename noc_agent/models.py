@@ -38,6 +38,8 @@ class Runbook(BaseModel):
     verify: str | None = None
     rollback: str | None = None
     reversible: bool = False        # default to the cautious value if someone forgets the field
+    intent: str | None = None       # what it will do, for people: "start guest {label.id} on {label.node}"
+    impact: str | None = None       # what else changes: "the guest boots; nothing else changes"
     timeout: int = 60
 
     _selectors: list[Selector] = PrivateAttr(default_factory=list)
@@ -86,6 +88,7 @@ class AuditRecord(BaseModel):
     decision: Decision
     runbook_id: str | None = None
     rendered_command: str | None = None
+    intent: str | None = None       # rendered Runbook.intent (or its description)
     exit_code: int | None = None
     stdout: str = ""
     stderr: str = ""

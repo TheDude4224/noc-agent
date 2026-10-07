@@ -90,6 +90,17 @@ Only then does anything execute.
 
 **Metrics** (`metrics.py`): `GET /metrics` in Prometheus text format, no extra dependency. Watch the watcher: `noc_alerts_received_total` is counted *before* handling and `noc_runs_total{decision}` after, so "received but never finished" is visible; `noc_llm_requests_total` / `noc_llm_errors_total` / `noc_llm_latency_seconds` show whether the triage model answers; `noc_dry_run`, `noc_runbooks`, `noc_approvals_pending`, `noc_last_run_timestamp_seconds` and `noc_build_info{version}` round it out. Suggested alerts: `up == 0` (engine down), `increase(noc_llm_errors_total[15m]) > 0 and increase(noc_llm_requests_total[15m]) == increase(noc_llm_errors_total[15m])` (model unreachable), `increase(noc_alerts_received_total[15m]) > 0 and sum(increase(noc_runs_total[15m])) == 0` (stalled). Deliver those through the monitoring stack, never through the agent itself.
 
+## Say what it's going to do, do what it said
+
+Before any runbook executes, including a human-approved one, the agent announces it, then reports the outcome:
+
+```
+[GOING TO] ServiceDown on web-01 | runbook=restart-service | will: restart nginx on web-01 | why: <the model's reasoning> | impact: a few seconds of downtime for nginx | conf=0.93 | run=4f2a…
+[FIXED] ServiceDown on web-01 | runbook=restart-service | did: restart nginx on web-01 | conf=0.93 | ran and verified
+```
+
+`will:`/`did:` come from the runbook's optional `intent` (placeholders allowed, rendered unquoted; it falls back to `description`), `impact:` from its optional `impact`. Dry runs, escalations and parked approvals are not announced because nothing runs. `notify.announce: false` turns the pre-action message off. `notify.require_announce: true` makes the announcement a gate: if the webhook does not answer 2xx, nothing executes, the run is audited as **blocked**, and a parked approval stays parked. Use it when "it acted without telling anyone" is worse than "it waited". The webhook body is `{"text", "stage": "before"|"after", "run_id", "alertname", "runbook_id", "decision"}`, so a relay can treat the two stages differently. `noc_announcements_total{stage,result}` counts deliveries.
+
 ## Runbooks are the whole attack surface
 
 `runbooks/runbooks.yaml` is the only place a command can come from. Keep it short. Every entry is:
@@ -102,6 +113,8 @@ Only then does anything execute.
   verify:  "ssh -o BatchMode=yes {host} 'systemctl is-active {label.service}'"
   reversible: true
   timeout: 60
+  intent: "restart {label.service} on {host}"        # optional, for the announcement
+  impact: "a few seconds of downtime for {label.service}"   # optional
 ```
 
 `reversible: false` means a person approves every time, regardless of confidence. Use it for anything that affects more than one host, drops sessions, or changes routing. The `failover-to-secondary-wan` and `reboot-host` entries are examples. If you forget the field it defaults to `false`, which is the cautious direction.

@@ -9,7 +9,7 @@ from pathlib import Path
 
 from .audit import AuditLog
 from .config import Config, load_runbooks
-from .executor import execute, render
+from .executor import execute, render, render_text
 from .metrics import METRICS, engine_version
 from .models import Alert, AuditRecord, Runbook
 from .notify import Notifier
@@ -26,6 +26,8 @@ class Agent:
         self.policy = Policy(cfg.policy)
         self.audit = AuditLog(cfg.audit.path)
         self.notifier = Notifier(cfg.notify.webhook_url)
+        if cfg.notify.require_announce and not cfg.notify.webhook_url:
+            raise ValueError("notify.require_announce needs notify.webhook_url: there is nowhere to announce to")
         self.approvals = Path(cfg.approvals_dir)
         self.approvals.mkdir(parents=True, exist_ok=True)
         METRICS.set("noc_build_info", 1, {"version": engine_version()})
@@ -64,6 +66,7 @@ class Agent:
         try:
             if runbook and runbook.id != "escalate-to-human":
                 rec.rendered_command = render(runbook.command, alert)
+                rec.intent = render_text(runbook.intent or runbook.description, alert)
         except KeyError as e:
             rec.decision = "error"
             rec.reason = f"cannot render runbook: {e}"
@@ -71,6 +74,10 @@ class Agent:
 
         if verdict.outcome == "execute":
             assert runbook is not None
+            if not self._announce(rec, runbook, why=triage.reasoning or alert.summary or "its alert fired"):
+                rec.decision = "blocked-policy"
+                rec.reason = "could not announce the action (notify.require_announce); not acting silently"
+                return self._finish(rec, t0)
             self.policy.record_execution(alert)
             res = execute(runbook, alert)
             rec.exit_code = res.exit_code
@@ -119,21 +126,33 @@ class Agent:
         alert = Alert.model_validate(data["alert"])
         runbook = self.by_id[data["runbook_id"]]
         t0 = time.time()
-        self.policy.record_execution(alert)
-        res = execute(runbook, alert)
         rec = AuditRecord(
             run_id=uuid.uuid4().hex[:12],
             alert=alert,
-            decision="executed" if res.exit_code == 0 else ("executed-rolled-back" if res.rolled_back else "error"),
+            decision="error",
             runbook_id=runbook.id,
             rendered_command=data["rendered_command"],
-            exit_code=res.exit_code,
-            stdout=res.stdout,
-            stderr=res.stderr,
+            intent=render_text(runbook.intent or runbook.description, alert),
             reason=f"human-approved parked run {run_id}",
         )
+        if not self._announce(rec, runbook, why=f"a human approved parked run {run_id}"):
+            rec.decision = "blocked-policy"
+            rec.reason = f"approved run {run_id} not executed: could not announce it (notify.require_announce); still parked"
+            return self._finish(rec, t0)
+        self.policy.record_execution(alert)
+        res = execute(runbook, alert)
+        rec.decision = "executed" if res.exit_code == 0 else ("executed-rolled-back" if res.rolled_back else "error")
+        rec.exit_code, rec.stdout, rec.stderr = res.exit_code, res.stdout, res.stderr
         p.unlink()
         return self._finish(rec, t0)
+
+    def _announce(self, rec: AuditRecord, runbook: Runbook, *, why: str) -> bool:
+        """Say what it is going to do. False only if delivery failed AND the config requires it."""
+        if not self.cfg.notify.announce:
+            return True
+        impact = render_text(runbook.impact, rec.alert) if runbook.impact else "not stated in the runbook"
+        delivered = self.notifier.announce(rec, impact=impact, why=why)
+        return delivered or not self.cfg.notify.require_announce
 
     def _finish(self, rec: AuditRecord, t0: float) -> AuditRecord:
         rec.duration_ms = int((time.time() - t0) * 1000)

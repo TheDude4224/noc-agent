@@ -39,6 +39,8 @@ class AuditConfig(BaseModel):
 
 class NotifyConfig(BaseModel):
     webhook_url: str = ""
+    announce: bool = True              # post intent + evidence + impact BEFORE executing
+    require_announce: bool = False     # refuse to act if that announcement is not delivered (2xx)
 
 
 class ServerConfig(BaseModel):

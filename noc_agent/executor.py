@@ -34,6 +34,19 @@ def render(template: str, alert: Alert) -> str:
     return _PLACEHOLDER.sub(sub, template)
 
 
+def render_text(template: str, alert: Alert) -> str:
+    """Same placeholders as `render`, for messages to people: unquoted, and a missing
+    value becomes "?" instead of failing (an announcement must never block on a typo)."""
+    def sub(m: re.Match) -> str:
+        key = m.group(1)
+        if key in ("host", "instance", "alertname"):
+            val = getattr(alert, key)
+        else:
+            val = alert.labels.get(key.split(".", 1)[1], "")
+        return val or "?"
+    return _PLACEHOLDER.sub(sub, template)
+
+
 @dataclass
 class ExecResult:
     exit_code: int
