@@ -38,7 +38,7 @@ class Agent:
 
     def menu_for(self, alert: Alert) -> list[Runbook]:
         """Only show the model runbooks that claim this alert, plus escalate."""
-        menu = [rb for rb in self.runbooks if rb.applies_to(alert.alertname) and rb.id != "escalate-to-human"]
+        menu = [rb for rb in self.runbooks if rb.applies_to(alert) and rb.id != "escalate-to-human"]
         esc = self.by_id.get("escalate-to-human")
         if esc:
             menu.append(esc)

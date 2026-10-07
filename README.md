@@ -70,13 +70,13 @@ Alertmanager ──POST /alertmanager──▶ normalize ──▶ triage (LLM) 
                                             from a fixed menu      checks, in order  verify, rollback
 ```
 
-**Triage** (`triage.py`): the model sees the alert and a numbered menu of runbooks that claim that alertname. It returns a runbook id, a confidence, two sentences of reasoning, and a blast-radius guess. Anything else, including bad JSON, a made-up id, or a timeout, becomes `escalate-to-human`. The model has no tool to run commands. It cannot invent one.
+**Triage** (`triage.py`): the model sees the alert and a numbered menu of runbooks that claim that alert (by alertname and, optionally, labels). It returns a runbook id, a confidence, two sentences of reasoning, and a blast-radius guess. Anything else, including bad JSON, a made-up id, or a timeout, becomes `escalate-to-human`. The model has no tool to run commands. It cannot invent one.
 
 **Policy** (`policy.py`): seven gates, cheapest and hardest first, all after the model so it can't argue with them:
 
 1. Model punted or chose an id that doesn't exist → **escalated**
 2. Alert carries a `never_automate_labels` label (`tier=payments`, `tier=auth`) → **blocked**
-3. The chosen runbook doesn't list this alertname in `matches` → **blocked** (the model's choice is not enough; the runbook has to claim the alert too)
+3. The chosen runbook's `matches` don't claim this alert (alertname and label matchers) → **blocked** (the model's choice is not enough; the runbook has to claim the alert too)
 4. Confidence below `min_confidence_to_act` → **blocked**
 5. Per-alert or per-hour action cap reached → **blocked** (this is what stops a loop)
 6. Runbook is `reversible: false` → **needs-approval**, parked to a file for a human
@@ -107,6 +107,20 @@ Only then does anything execute.
 `reversible: false` means a person approves every time, regardless of confidence. Use it for anything that affects more than one host, drops sessions, or changes routing. The `failover-to-secondary-wan` and `reboot-host` entries are examples. If you forget the field it defaults to `false`, which is the cautious direction.
 
 The model reads `description`. Write it for the model the way you'd write it for a new hire on the night shift.
+
+### Scoping a runbook with label matchers
+
+Each `matches` entry is one alternative, written like a PromQL selector without the metric. Entries are ORed; matchers inside one pair of braces are ANDed:
+
+```yaml
+matches:
+  - "ServiceDown"                                   # that alertname (any labels)
+  - 'GuestStopped{node="pve-01", id=~"lxc/.*"}'     # that alertname, only for LXC guests on pve-01
+  - '{team="network", severity!="info"}'            # any alertname carrying these labels
+  - "*"                                             # anything (escalate-to-human uses this)
+```
+
+Operators are `=`, `!=`, `=~`, `!~`. Regexes are fully anchored, as in Prometheus (`job=~"node"` means exactly `node`). A missing label compares as the empty string. Matchers see the alert's labels plus `alertname`, `instance`, `host` and `severity`. A selector that doesn't parse stops the runbook file from loading; it never silently matches nothing or everything. The same check is policy gate 3, so a label-scoped runbook can't be used outside its scope even if the model picks it.
 
 ## Pointing it at a real lab
 
