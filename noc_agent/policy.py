@@ -50,8 +50,9 @@ class Policy:
             if alert.labels.get(k) == v:
                 return Verdict(False, "blocked-policy", f"label {rule} is on the never-automate list")
 
-        # 3. The runbook must actually claim this alert. The model's choice is not enough.
-        if not runbook.applies_to(alert.alertname):
+        # 3. The runbook must actually claim this alert (alertname and any label matchers).
+        #    The model's choice is not enough.
+        if not runbook.applies_to(alert):
             return Verdict(False, "blocked-policy",
                            f"runbook '{runbook.id}' does not match alert '{alert.alertname}'")
 
