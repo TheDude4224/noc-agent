@@ -35,6 +35,12 @@ audit:
 notify:
   # Optional webhook (Slack, Teams, Discord, ntfy). Leave empty to print to stdout only.
   webhook_url: ""
+  # Say what it's going to do, do what it said: post intent + evidence + impact BEFORE a runbook
+  # executes (and before a human-approved run), then the outcome after.
+  announce: true
+  # Refuse to act when that announcement is not confirmed (webhook answered non-2xx or failed).
+  # The run is recorded as blocked; a parked approval stays parked. Needs webhook_url.
+  require_announce: false
 
 server:
   host: "0.0.0.0"
