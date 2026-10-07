@@ -10,6 +10,7 @@ from pathlib import Path
 from .audit import AuditLog
 from .config import Config, load_runbooks
 from .executor import execute, render
+from .metrics import METRICS, engine_version
 from .models import Alert, AuditRecord, Runbook
 from .notify import Notifier
 from .policy import Policy
@@ -27,6 +28,13 @@ class Agent:
         self.notifier = Notifier(cfg.notify.webhook_url)
         self.approvals = Path(cfg.approvals_dir)
         self.approvals.mkdir(parents=True, exist_ok=True)
+        METRICS.set("noc_build_info", 1, {"version": engine_version()})
+        METRICS.set("noc_started_timestamp_seconds", time.time())
+        METRICS.set("noc_dry_run", 1 if cfg.policy.dry_run else 0)
+        METRICS.set("noc_runbooks", len(self.runbooks))
+
+    def pending_approvals(self) -> int:
+        return sum(1 for _ in self.approvals.glob("*.json"))
 
     def menu_for(self, alert: Alert) -> list[Runbook]:
         """Only show the model runbooks that claim this alert, plus escalate."""
@@ -130,5 +138,8 @@ class Agent:
     def _finish(self, rec: AuditRecord, t0: float) -> AuditRecord:
         rec.duration_ms = int((time.time() - t0) * 1000)
         self.audit.write(rec)
+        METRICS.inc("noc_runs_total", {"decision": rec.decision})
+        METRICS.observe("noc_run_duration_seconds", rec.duration_ms / 1000)
+        METRICS.set("noc_last_run_timestamp_seconds", time.time())
         self.notifier.send(rec)
         return rec
