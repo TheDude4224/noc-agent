@@ -88,6 +88,8 @@ Only then does anything execute.
 
 **Audit** (`audit.py`): append-only JSONL, one line per run, flushed immediately. Alert, triage, decision, rendered command, exit code, stdout/stderr tail, reason, duration. `noc-agent audit` prints it; `GET /audit` serves it.
 
+**Metrics** (`metrics.py`): `GET /metrics` in Prometheus text format, no extra dependency. Watch the watcher: `noc_alerts_received_total` is counted *before* handling and `noc_runs_total{decision}` after, so "received but never finished" is visible; `noc_llm_requests_total` / `noc_llm_errors_total` / `noc_llm_latency_seconds` show whether the triage model answers; `noc_dry_run`, `noc_runbooks`, `noc_approvals_pending`, `noc_last_run_timestamp_seconds` and `noc_build_info{version}` round it out. Suggested alerts: `up == 0` (engine down), `increase(noc_llm_errors_total[15m]) > 0 and increase(noc_llm_requests_total[15m]) == increase(noc_llm_errors_total[15m])` (model unreachable), `increase(noc_alerts_received_total[15m]) > 0 and sum(increase(noc_runs_total[15m])) == 0` (stalled). Deliver those through the monitoring stack, never through the agent itself.
+
 ## Runbooks are the whole attack surface
 
 `runbooks/runbooks.yaml` is the only place a command can come from. Keep it short. Every entry is:

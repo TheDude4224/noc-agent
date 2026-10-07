@@ -9,12 +9,14 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from pathlib import Path
 
 import httpx
 import yaml
 
 from .config import LLMConfig
+from .metrics import METRICS
 from .models import Alert, Runbook, Triage
 
 SYSTEM_PROMPT = """You are the triage step of a Network Operations Center agent.
@@ -94,9 +96,19 @@ class Triager:
     # -- providers ---------------------------------------------------------
 
     def _call(self, alert: Alert, menu: list[Runbook]) -> str:
-        if self.cfg.provider == "fake":
-            return self._call_fake(alert)
-        return self._call_openai(alert, menu)
+        METRICS.inc("noc_llm_requests_total")
+        t0 = time.time()
+        try:
+            if self.cfg.provider == "fake":
+                out = self._call_fake(alert)
+            else:
+                out = self._call_openai(alert, menu)
+        except Exception:
+            METRICS.inc("noc_llm_errors_total")
+            raise
+        METRICS.observe("noc_llm_latency_seconds", time.time() - t0)
+        METRICS.set("noc_llm_last_success_timestamp_seconds", time.time())
+        return out
 
     def _call_fake(self, alert: Alert) -> str:
         assert self._fake is not None
