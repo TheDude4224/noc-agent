@@ -59,7 +59,7 @@ def test_person_bound_runs_get_a_diagnosis_posted_and_stored(tmp_path, monkeypat
     alerts = [Alert.model_validate(a) for a in json.loads((ROOT / "examples" / "alerts.json").read_text())]
     recs = [agent.handle(a) for a in alerts]
     agent.close()
-    want = {r.run_id for r in recs if r.decision in agent.cfg.writer.on}
+    want = {r.run_id for r in recs if r.decision in agent.cfg.writer.decisions}
     diag = [p for p in posts if p["stage"] == "diagnosis"]
     assert {p["run_id"] for p in diag} == want and want            # every person-bound run, nothing else
     assert all(p["text"].startswith("[DIAGNOSIS] ") and "the cert expired" in p["text"] for p in diag)
@@ -185,6 +185,17 @@ def test_openai_compatible_local_model(tmp_path, monkeypatch):
     w = Writer(WriterConfig(provider="openai", model="qwen3:8b", base_url="http://gpu:11434/v1/", path=str(tmp_path / "d.jsonl")))
     assert w._run(rec()) == "local diagnosis"
     assert seen["url"] == "http://gpu:11434/v1/chat/completions" and seen["body"]["model"] == "qwen3:8b"
+
+
+def test_decisions_from_yaml_and_the_on_trap():
+    ok = yaml.safe_load("writer:\n  provider: fake\n  decisions: [executed]\n")
+    assert Config.model_validate(ok).writer.decisions == ["executed"]
+    trap = yaml.safe_load("writer:\n  provider: fake\n  on: [executed]\n")
+    assert True in trap["writer"]                                     # what YAML actually produced
+    with pytest.raises(Exception, match="decisions"):
+        Config.model_validate(trap)
+    with pytest.raises(Exception):
+        Config.model_validate({"writer": {"provider": "fake", "decisoins": ["x"]}})   # typo is loud
 
 
 def test_unknown_provider_fails_at_startup(tmp_path):

@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .models import Runbook
 
@@ -44,13 +44,24 @@ class NotifyConfig(BaseModel):
 
 
 class WriterConfig(BaseModel):
-    """The diagnosis writer (writer.py). Off unless a provider is set."""
+    """The diagnosis writer (writer.py). Off unless a provider is set. Unknown keys are an error:
+    a silently ignored key here means write-ups quietly stop (or never start)."""
+    model_config = ConfigDict(extra="forbid")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _yaml_on_is_true(cls, data):
+        # YAML 1.1 reads a bare `on:` key as the boolean True. Name the trap instead of ignoring it.
+        if isinstance(data, dict) and (True in data or "on" in data):
+            raise ValueError("writer: use `decisions:` (a bare `on:` key is the boolean true in YAML)")
+        return data
+
     provider: str = "none"             # none | claude-cli | anthropic-api | openai | fake
     model: str = "claude-haiku-4-5"
     credential_env: str = ""           # default per provider: CLAUDE_CODE_OAUTH_TOKEN / ANTHROPIC_API_KEY / NOC_WRITER_API_KEY
     base_url: str = "http://localhost:11434/v1"   # openai provider only
     claude_bin: str = "claude"         # claude-cli provider only
-    on: list[str] = Field(default_factory=lambda: [
+    decisions: list[str] = Field(default_factory=lambda: [
         "escalated", "needs-approval", "blocked-policy", "error", "executed-rolled-back"])
     max_words: int = 120
     timeout_seconds: int = 120
