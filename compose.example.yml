@@ -1,0 +1,20 @@
+# Run the engine from the image. Copy to compose.yml and point the mounts at your files.
+#   docker compose up -d
+#   docker compose exec noc-agent noc-agent -c /config/config.yaml audit -n 20
+#   docker compose exec noc-agent noc-agent -c /config/config.yaml approve <run_id>
+services:
+  noc-agent:
+    build: .
+    image: noc-agent:local
+    restart: unless-stopped
+    ports:
+      - "8088:8088"
+    volumes:
+      - ./config.yaml:/config/config.yaml:ro
+      - ./runbooks:/runbooks:ro
+      - noc-state:/var/lib/noc-agent
+      - ./keys:/root/.ssh:ro          # keys pinned on your gateways; forced-command only
+    environment:
+      NOC_LLM_API_KEY: ${NOC_LLM_API_KEY:-}
+volumes:
+  noc-state:

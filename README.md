@@ -163,6 +163,26 @@ examples/                     demo configs, canned model, sample alerts, local r
 tests/                        28 tests; every gate has one
 ```
 
+## Run it as a container
+
+```bash
+docker build -t noc-agent .
+cp examples/config.live-demo.yaml config.yaml   # edit llm/policy; paths below are the mounts
+docker run -d --name noc-agent -p 8088:8088 \
+  -v $PWD/config.yaml:/config/config.yaml:ro \
+  -v $PWD/runbooks:/runbooks:ro \
+  -v noc-state:/var/lib/noc-agent \
+  -v $PWD/keys:/root/.ssh:ro \
+  noc-agent
+curl -s localhost:8088/healthz
+```
+
+The image holds the code only. Config, runbooks, SSH keys and the audit log are mounts, so an
+upgrade is `docker pull` + restart and nothing else moves. `openssh-client` is the one system
+package: runbooks reach hosts over forced-command SSH with the mounted keys. `compose.example.yml`
+is the same thing as a service. In `config.yaml` point `runbooks_file` at `/runbooks/runbooks.yaml`,
+`audit.path` at `/var/lib/noc-agent/audit.jsonl` and `approvals_dir` at `/var/lib/noc-agent/approvals`.
+
 ## Tests
 
 ```bash
