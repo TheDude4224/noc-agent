@@ -37,12 +37,12 @@ def test_registry_renders_prometheus_text():
     m.inc("x_total", {"decision": 'a"b'})
     m.inc("x_total", {"decision": "c"}, by=2)
     m.observe("lat_seconds", 0.25)
-    m.observe("lat_seconds", 0.75)
+    m.observe("lat_seconds", 0.5)
     text = m.render()
     assert "# HELP x_total things\n# TYPE x_total counter\n" in text
     assert 'x_total{decision="a\\"b"} 1\n' in text and 'x_total{decision="c"} 2\n' in text
     # _sum and _count sit under one family header
-    assert "# TYPE lat_seconds summary\nlat_seconds_count 2\nlat_seconds_sum 1.0\n" in text
+    assert "# TYPE lat_seconds summary\nlat_seconds_count 2\nlat_seconds_sum 0.75\n" in text
     assert text.count("# TYPE") == 2
 
 
